@@ -40,21 +40,15 @@ jobs:
       - name: Log in to ACR
         run: az acr login --name ${{ vars.ACR_NAME }}.azurecr.io
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ vars.ACR_NAME }}.azurecr.io/greenshift-jupyter
-          tags: |
-            type=sha,prefix=sha-
-            type=semver,pattern={{version}}
-
       - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        run: |
+          REGISTRY="${{ vars.ACR_NAME }}.azurecr.io"
+          IMAGE="${REGISTRY}/greenshift-jupyter"
+          SHA_TAG="sha-$(git rev-parse --short HEAD)"
+          docker build -t "${IMAGE}:${SHA_TAG}" .
+          docker push "${IMAGE}:${SHA_TAG}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            docker tag "${IMAGE}:${SHA_TAG}" "${IMAGE}:${VERSION}"
+            docker push "${IMAGE}:${VERSION}"
+          fi
