@@ -33,7 +33,10 @@ ingress:
     # Find it with: kubectl get secret -n <namespace> | grep tls
     # Leave empty to let cert-manager create a new one (requires annotation below).
     existingSecret: ""
-  annotations: {}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
     # If using cert-manager for a new cert (uncomment):
     # cert-manager.io/cluster-issuer: letsencrypt-prod
 
