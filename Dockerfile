@@ -1,4 +1,4 @@
-FROM quay.io/jupyter/scipy-notebook:2024-12-02
+FROM quay.io/jupyter/scipy-notebook:2024-09-02
 
 # Pre-install DB connectors so the NetworkPolicy can block all outbound internet
 # after pod start. Without this, pip install at runtime would need port 443 egress.

@@ -2,7 +2,7 @@ image:
   repository: greenshiftpublic-bxchgyh9gcdzcxbh.azurecr.io/greenshift-jupyter
   # Must match the chart appVersion. Updated in lockstep when releasing.
   # For local dev you can use a sha-<sha> tag from a main-branch build.
-  tag: "v0.1.0"
+  tag: "v0.1.1"
   pullPolicy: IfNotPresent
 
 replicaCount: 1
