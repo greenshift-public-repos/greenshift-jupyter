@@ -15,6 +15,7 @@ spec:
       labels:
         {{- include "jupyter.selectorLabels" . | nindent 8 }}
     spec:
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
       containers:

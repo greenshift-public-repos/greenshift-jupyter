@@ -2,7 +2,7 @@ apiVersion: v2
 name: jupyter
 description: Read-only Jupyter Notebook for Greenshift clusters. Connects to MariaDB, MongoDB, and ClickHouse via read-only users. 
 type: application
-version: 0.1.1
+version: 0.1.2
 appVersion: "v0.1.0"
 keywords:
   - jupyter
