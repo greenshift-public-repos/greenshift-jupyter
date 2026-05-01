@@ -40,15 +40,24 @@ jobs:
       - name: Log in to ACR
         run: az acr login --name ${{ vars.ACR_NAME }}.azurecr.io
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push
         run: |
           REGISTRY="${{ vars.ACR_NAME }}.azurecr.io"
           IMAGE="${REGISTRY}/greenshift-jupyter"
           SHA_TAG="sha-$(git rev-parse --short HEAD)"
-          docker build -t "${IMAGE}:${SHA_TAG}" .
-          docker push "${IMAGE}:${SHA_TAG}"
+          TAGS="${IMAGE}:${SHA_TAG}"
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
-            docker tag "${IMAGE}:${SHA_TAG}" "${IMAGE}:${VERSION}"
-            docker push "${IMAGE}:${VERSION}"
+            TAGS="${TAGS},${IMAGE}:${VERSION}"
           fi
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --push \
+            $(echo "$TAGS" | tr ',' '\n' | sed 's/^/-t /') \
+            .
