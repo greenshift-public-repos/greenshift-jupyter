@@ -2,6 +2,22 @@ apiVersion: v1
 entries:
   jupyter:
   - apiVersion: v2
+    appVersion: v0.1.2
+    created: "2026-05-01T14:04:10.060634973Z"
+    description: Read-only Jupyter Notebook for Greenshift clusters. Connects to MariaDB,
+      MongoDB, and ClickHouse via read-only users.
+    digest: e8da7673f2b1d896b0055c01892c8408dc79a7a98eb491e3a4126fc1f4055745
+    home: https://github.com/greenshift-public-repos/greenshift-jupyter
+    keywords:
+    - jupyter
+    - greenshift
+    - analytics
+    name: jupyter
+    type: application
+    urls:
+    - https://github.com/greenshift-public-repos/greenshift-jupyter/releases/download/jupyter-0.1.5/jupyter-0.1.5.tgz
+    version: 0.1.5
+  - apiVersion: v2
     appVersion: v0.1.1
     created: "2026-05-01T13:15:55.784660891Z"
     description: Read-only Jupyter Notebook for Greenshift clusters. Connects to MariaDB,
@@ -81,4 +97,4 @@ entries:
     urls:
     - https://github.com/greenshift-public-repos/greenshift-jupyter/releases/download/jupyter-0.1.0/jupyter-0.1.0.tgz
     version: 0.1.0
-generated: "2026-05-01T13:15:55.784679208Z"
+generated: "2026-05-01T14:04:10.060657435Z"
