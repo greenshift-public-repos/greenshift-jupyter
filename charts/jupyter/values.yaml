@@ -1,0 +1,120 @@
+image:
+  # Built by the docker-publish CI workflow and pushed to Greenshift's ACR.
+  # Format: <ACR_NAME>.azurecr.io/greenshift-jupyter
+  # Must be updated to the actual ACR login server when the public repo is created.
+  repository: ""
+  # Must match the chart appVersion. Updated in lockstep when releasing.
+  # For local dev you can use a sha-<sha> tag from a main-branch build.
+  tag: "v0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# Jupyter access token. Used when externalSecret.enabled=false (local and PR environments).
+# For production/test, leave as default and use externalSecret to pull from Key Vault.
+# WARNING: change this for any non-local deployment where externalSecret is not enabled.
+token: "local-jupyter-token"
+
+service:
+  type: ClusterIP
+  port: 8888
+
+ingress:
+  enabled: true
+  # Ingress class name — must match the class used by the main Greenshift chart.
+  # AKS webapprouting: "webapprouting.kubernetes.azure.com"
+  # OSS nginx: "nginx"
+  className: "webapprouting.kubernetes.azure.com"
+  # Domain name — must exactly match the main chart's ingress.domainName.
+  # e.g. "application.test.greenshift.app"
+  host: ""
+  # Path prefix — keep as /jupyter to match the Jupyter base_url setting.
+  path: /jupyter
+  tls:
+    enabled: true
+    # Name of the existing TLS secret created by the main chart's cert-manager.
+    # Find it with: kubectl get secret -n <namespace> | grep tls
+    # Leave empty to let cert-manager create a new one (requires annotation below).
+    existingSecret: ""
+  annotations: {}
+    # If using cert-manager for a new cert (uncomment):
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+
+persistence:
+  enabled: false
+  # Storage class — leave empty to use the cluster default.
+  storageClass: ""
+  size: 5Gi
+  # Notebooks are stored here. Survives pod restarts.
+  mountPath: /home/jovyan/work
+
+db:
+  mariadb:
+    host: mariadb
+    port: 3306
+    user: ro_user
+    # Required when externalSecret.enabled=false.
+    password: ""
+  mongo:
+    host: mongo
+    # K8s service port (routes internally to pod port 27017).
+    port: 80
+    user: ro_user
+    password: ""
+  clickhouse:
+    host: clickhouse
+    # HTTP interface — required by clickhouse-connect.
+    port: 8123
+    user: ro_user
+    password: ""
+
+# Use Azure Key Vault via External Secrets Operator (required for test and prod).
+# When enabled, the chart creates an ExternalSecret instead of a plain K8s Secret.
+# The External Secrets Operator must already be installed in the cluster.
+externalSecret:
+  enabled: false
+  refreshInterval: 1h
+  secretStoreName: azure-kv
+  secretStoreKind: ClusterSecretStore
+  # Key Vault secret name prefix — must match the pattern used by the main chart.
+  # Format: <helm-release-name>--jupyter-secret--<key>
+  # e.g. for release name "greenshift-test": "greenshift-test--jupyter-secret--token"
+  remoteKeyPrefix: ""
+
+networkPolicy:
+  # Restrict inbound traffic to Jupyter to only the ingress controller pods.
+  # This prevents any other pod in the cluster from reaching the notebook directly.
+  # Set namespaceSelector and podSelector to match your ingress controller.
+  ingressController:
+    enabled: true
+    namespaceSelector:
+      matchLabels:
+        # AKS webapprouting default namespace:
+        kubernetes.io/metadata.name: app-routing-system
+    podSelector:
+      matchLabels:
+        # AKS webapprouting nginx pods:
+        app.kubernetes.io/name: nginx
+  # Pod selectors for egress — each DB port is restricted to its own pod only.
+  # Defaults match the Greenshift platform chart pod labels.
+  db:
+    mariadb:
+      podSelector:
+        matchLabels:
+          app: mariadb
+    mongo:
+      podSelector:
+        matchLabels:
+          app: mongo
+    clickhouse:
+      podSelector:
+        matchLabels:
+          app: clickhouse
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "2Gi"
+    cpu: "1"

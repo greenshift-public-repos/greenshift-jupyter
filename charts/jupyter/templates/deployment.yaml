@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "jupyter.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "jupyter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "jupyter.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: jupyter
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - start-notebook.sh
+          args:
+            - "--ServerApp.base_url=/jupyter"
+            - "--ServerApp.allow_origin=*"
+            - "--no-browser"
+          ports:
+            - name: notebook
+              containerPort: 8888
+          env:
+            - name: JUPYTER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: jupyter-secret
+                  key: token
+            - name: MARIADB_HOST
+              value: {{ .Values.db.mariadb.host | quote }}
+            - name: MARIADB_PORT
+              value: {{ .Values.db.mariadb.port | quote }}
+            - name: MARIADB_USER
+              value: {{ .Values.db.mariadb.user | quote }}
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jupyter-secret
+                  key: mariadb-password
+            - name: MONGO_HOST
+              value: {{ .Values.db.mongo.host | quote }}
+            - name: MONGO_PORT
+              value: {{ .Values.db.mongo.port | quote }}
+            - name: MONGO_USER
+              value: {{ .Values.db.mongo.user | quote }}
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jupyter-secret
+                  key: mongo-password
+            - name: CLICKHOUSE_HOST
+              value: {{ .Values.db.clickhouse.host | quote }}
+            - name: CLICKHOUSE_PORT
+              value: {{ .Values.db.clickhouse.port | quote }}
+            - name: CLICKHOUSE_USER
+              value: {{ .Values.db.clickhouse.user | quote }}
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jupyter-secret
+                  key: clickhouse-password
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: notebooks
+              mountPath: {{ .Values.persistence.mountPath }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: notebooks
+          persistentVolumeClaim:
+            claimName: {{ include "jupyter.fullname" . }}-notebooks
+      {{- end }}

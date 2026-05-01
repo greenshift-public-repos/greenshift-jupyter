@@ -1,0 +1,66 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "jupyter.fullname" . }}-netpol
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "jupyter.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "jupyter.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+
+  ingress:
+    {{- if .Values.networkPolicy.ingressController.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.namespaceSelector.matchLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressController.podSelector.matchLabels | nindent 14 }}
+      ports:
+        - port: 8888
+    {{- else }}
+    - ports:
+        - port: 8888
+    {{- end }}
+
+  egress:
+    # DNS — restricted to kube-system (CoreDNS) to prevent DNS tunneling exfiltration.
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+
+    # MariaDB — only to the mariadb pod on its specific port.
+    - ports:
+        - port: {{ .Values.db.mariadb.port }}
+      to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.db.mariadb.podSelector.matchLabels | nindent 14 }}
+
+    # MongoDB — only to the mongo pod on its specific port.
+    - ports:
+        - port: {{ .Values.db.mongo.port }}
+      to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.db.mongo.podSelector.matchLabels | nindent 14 }}
+
+    # ClickHouse — only to the clickhouse pod on its specific port.
+    - ports:
+        - port: {{ .Values.db.clickhouse.port }}
+      to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.db.clickhouse.podSelector.matchLabels | nindent 14 }}
