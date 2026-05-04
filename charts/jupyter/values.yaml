@@ -48,6 +48,8 @@ persistence:
   # Notebooks are stored here. Survives pod restarts.
   mountPath: /home/jovyan/work
 
+# Database credentials and connection info. Used when externalSecret.enabled=false (local and PR environments).
+# The passwords are set in the helm install command for local and PR environments, and pulled from Key Vault for production/test.
 db:
   mariadb:
     host: mariadb
@@ -77,7 +79,8 @@ externalSecret:
   secretStoreName: azure-kv
   secretStoreKind: ClusterSecretStore
   # Key Vault secret name prefix — must match the pattern used by the main chart.
-  # Format: <helm-release-name>--jupyter-secret--<key>
+  # Token format: <helm-release-name>--jupyter-secret--token
+  # DB password format: <helm-release-name>--readonly-db-secret--<database>-password
   # e.g. for release name "greenshift-test": "greenshift-test--jupyter-secret--token"
   remoteKeyPrefix: ""
 

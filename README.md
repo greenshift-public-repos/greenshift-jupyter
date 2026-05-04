@@ -13,6 +13,35 @@ A Helm chart that deploys a read-only Jupyter notebook for [Greenshift](https://
 
 ---
 
+## Required Secrets
+
+### Local / dev (`externalSecret.enabled=false`)
+
+Passwords are passed directly via `--set` at install time (see Install section below). No pre-created secrets are needed.
+
+### Azure (`externalSecret.enabled=true`)
+
+The following Key Vault secrets must exist before running `helm install`. Use `<release-name>` as the prefix — it must match the `externalSecret.remoteKeyPrefix` value you pass to Helm.
+
+| Key Vault secret name | Description | Created by |
+|-----------------------|-------------|------------|
+| `<release-name>--jupyter-secret--token` | Notebook login token. Generate with `python3 -c 'import secrets; print(secrets.token_hex(32))'` | **You, before install** |
+| `<release-name>--readonly-db-secret--mariadb-password` | `ro_user` password for MariaDB | Main Greenshift chart |
+| `<release-name>--readonly-db-secret--mongo-password` | `ro_user` password for MongoDB | Main Greenshift chart |
+| `<release-name>--readonly-db-secret--clickhouse-password` | `ro_user` password for ClickHouse | Main Greenshift chart |
+
+The three `readonly-db-secret` entries are created automatically when the main Greenshift chart is deployed. The only secret you need to create manually is the Jupyter token.
+
+To create it, contact the IT team and provide the Key Vault name, release name prefix, and the token value you want to set — or if you have direct Key Vault access:
+```bash
+az keyvault secret set \
+  --vault-name <keyvault-name> \
+  --name "<release-name>--jupyter-secret--token" \
+  --value "$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+```
+
+---
+
 ## Install
 
 ```bash
@@ -86,10 +115,12 @@ The Key Vault key name prefix. Must match the Helm release name of the main Gree
 
 ```
 <remoteKeyPrefix>--jupyter-secret--token
-<remoteKeyPrefix>--jupyter-secret--mariadb-password
-<remoteKeyPrefix>--jupyter-secret--mongo-password
-<remoteKeyPrefix>--jupyter-secret--clickhouse-password
+<remoteKeyPrefix>--readonly-db-secret--mariadb-password
+<remoteKeyPrefix>--readonly-db-secret--mongo-password
+<remoteKeyPrefix>--readonly-db-secret--clickhouse-password
 ```
+
+The `readonly-db-secret` keys are created by the main Greenshift chart when it provisions the read-only database users. Only `jupyter-secret--token` is Jupyter-specific and must be created separately before installing this chart.
 
 ---
 
@@ -177,7 +208,7 @@ Database drivers (`pymysql`, `pymongo`, `clickhouse-connect`) are pre-baked into
 | Key | Default | Description |
 |-----|---------|-------------|
 | `image.repository` | `""` | ACR image URL. Set to `<ACR_NAME>.azurecr.io/greenshift-jupyter`. |
-| `image.tag` | `"v0.1.0"` | Image tag. Must match chart `appVersion`. Updated on each release. |
+| `image.tag` | `"v0.1.0"` | Image tag. Must match `appVersion` in `Chart.yaml`. Only updated when a new Docker image is built. |
 | `token` | `"local-jupyter-token"` | Notebook access token. Used when `externalSecret.enabled=false`. |
 | `ingress.host` | `""` | **Required.** Cluster domain, e.g. `application.test.greenshift.app`. |
 | `ingress.className` | `"webapprouting.kubernetes.azure.com"` | Ingress class. Use `"nginx"` for local/OSS. |
@@ -207,18 +238,27 @@ Database drivers (`pymysql`, `pymongo`, `clickhouse-connect`) are pre-baked into
 
 ## Releases
 
-Chart and image versions are kept in lockstep. Both `Chart.yaml` fields and `values.yaml` `image.tag` are updated together on each release.
+`Chart.yaml` has two independent version fields:
+
+- **`version`** — the Helm chart version. Bump this whenever any chart file changes (templates, values, helpers), even if the Docker image did not change.
+- **`appVersion`** — the Docker image version. Only bump this when a new image is built and pushed to ACR. `values.yaml` `image.tag` must always match this.
 
 | Artefact | Where | Tag format |
 |----------|-------|------------|
 | Helm chart | GitHub Releases + `gh-pages` `index.yaml` | `jupyter-<semver>` (e.g. `jupyter-0.2.0`) |
 | Docker image | ACR | `v<semver>` (e.g. `v0.2.0`) + `sha-<git-sha>` |
 
-**Release process:**
-1. Bump `version` and `appVersion` in `Chart.yaml` (both to the new version, e.g. `0.2.0` / `v0.2.0`)
-2. Update `image.tag` in `values.yaml` to match (e.g. `v0.2.0`)
+**Releasing a chart-only change** (no Dockerfile changes):
+1. Bump `version` in `Chart.yaml` (e.g. `0.1.5` → `0.1.6`)
+2. Leave `appVersion` and `image.tag` unchanged
 3. Push to `main` — `release.yml` packages the chart and publishes the GitHub Release
-4. Create and push a git tag matching the new version: `git tag v0.2.0 && git push origin v0.2.0`
-5. `docker-publish.yml` triggers on the tag, builds the image, and pushes `v0.2.0` + `sha-<sha>` to ACR
+
+**Releasing a new Docker image** (Dockerfile or pip dependencies changed):
+1. Bump `appVersion` in `Chart.yaml` (e.g. `v0.1.2` → `v0.1.3`)
+2. Update `image.tag` in `values.yaml` to match (e.g. `v0.1.3`)
+3. Bump `version` in `Chart.yaml` as well (the values file changed)
+4. Push to `main` — `release.yml` packages the chart and publishes the GitHub Release
+5. Create and push a git tag: `git tag v0.1.3 && git push origin v0.1.3`
+6. `docker-publish.yml` triggers on the tag, builds the image, and pushes `v0.1.3` + `sha-<sha>` to ACR
 
 The `sha-<sha>` tag is also produced on every push to `main` when `Dockerfile` changes, useful for pinning during development without waiting for a formal release.
